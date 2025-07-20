@@ -2,6 +2,7 @@
 from database import get_connection
 from datetime import datetime
 
+# --- AUTHENTICATION ---
 def authenticate_user(username, password):
     conn = get_connection()
     cur = conn.cursor()
@@ -14,36 +15,13 @@ def authenticate_user(username, password):
     conn.close()
     return user
 
+# --- AUDITOR FUNCTIONS ---
 def fetch_auditors():
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
         SELECT id, name, username, role 
         FROM auditors
-    """)
-    data = cur.fetchall()
-    conn.close()
-    return data
-
-def fetch_findings():
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT id, title, department, status, flagged, date_logged 
-        FROM findings
-    """)
-    data = cur.fetchall()
-    conn.close()
-    return data
-
-def fetch_assignments():
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT f.title, a.name, assign.due_date, assign.status, assign.action_taken
-        FROM assignments assign
-        JOIN auditors a ON a.id = assign.auditor_id
-        JOIN findings f ON f.id = assign.finding_id
     """)
     data = cur.fetchall()
     conn.close()
@@ -59,6 +37,43 @@ def create_auditor(name, username, password, role):
     conn.commit()
     conn.close()
 
+# --- FINDING FUNCTIONS ---
+def fetch_findings():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, title, department, status, flagged, date_logged 
+        FROM findings
+    """)
+    data = cur.fetchall()
+    conn.close()
+    return data
+
+def add_finding(title, department, flagged=False):
+    conn = get_connection()
+    cur = conn.cursor()
+    date_logged = datetime.now().strftime("%Y-%m-%d")
+    cur.execute("""
+        INSERT INTO findings (title, department, status, flagged, date_logged)
+        VALUES (?, ?, ?, ?, ?)
+    """, (title, department, "Open", int(flagged), date_logged))
+    conn.commit()
+    conn.close()
+
+# --- ASSIGNMENTS ---
+def fetch_assignments():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT f.title, a.name, assign.due_date, assign.status, assign.action_taken
+        FROM assignments assign
+        JOIN auditors a ON a.id = assign.auditor_id
+        JOIN findings f ON f.id = assign.finding_id
+    """)
+    data = cur.fetchall()
+    conn.close()
+    return data
+
 def assign_finding(finding_id, auditor_id, due_date):
     conn = get_connection()
     cur = conn.cursor()
@@ -68,7 +83,8 @@ def assign_finding(finding_id, auditor_id, due_date):
     """, (finding_id, auditor_id, due_date, "Not Started"))
     conn.commit()
     conn.close()
-    
+
+# --- NOTES ---
 def add_auditor_note(auditor_id, department, note):
     conn = get_connection()
     cur = conn.cursor()
@@ -79,7 +95,7 @@ def add_auditor_note(auditor_id, department, note):
     """, (auditor_id, department, note, date_written))
     conn.commit()
     conn.close()
-    
+
 def fetch_all_notes():
     conn = get_connection()
     cur = conn.cursor()
