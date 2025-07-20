@@ -111,3 +111,14 @@ def get_notes():
     rows = cur.fetchall()
     conn.close()
     return rows
+
+# ✅ New function: Allow admin to add a finding
+def add_finding(title, description, department, status="Open", flagged=0):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO findings (title, description, department, status, flagged, date_logged)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (title, description, department, status, flagged, datetime.now().strftime("%Y-%m-%d")))
+    conn.commit()
+    conn.close()
