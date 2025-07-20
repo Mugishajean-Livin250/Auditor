@@ -1,4 +1,3 @@
-# app.py
 import streamlit as st
 from logic import (
     authenticate_user,
@@ -8,21 +7,22 @@ from logic import (
     create_auditor,
     assign_finding,
     add_auditor_note,
-    fetch_all_notes
+    fetch_all_notes,
+    add_finding  # ✅ New function
 )
 from database import init_db
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
 
-# Initialize DB and Streamlit config
+# --- INIT ---
 st.set_page_config(page_title="Auditors Tracker", layout="wide")
 init_db()
 
 if "user" not in st.session_state:
     st.session_state.user = None
 
-# ------------------------- LOGIN SCREEN -------------------------
+# --- LOGIN ---
 def login_screen():
     st.title("Auditors Tracker")
     username = st.text_input("Username")
@@ -40,15 +40,13 @@ def login_screen():
         else:
             st.error("Invalid credentials")
 
-# ------------------------- DASHBOARD -------------------------
+# --- DASHBOARD ---
 def dashboard():
     st.subheader("📊 Dashboard Overview")
     findings = fetch_findings()
-
     if not findings:
         st.info("No findings available.")
         return
-
     df = pd.DataFrame(findings, columns=["ID", "Title", "Department", "Status", "Flagged", "Date Logged"])
     st.dataframe(df)
 
@@ -58,31 +56,27 @@ def dashboard():
     ax.set_title("Audit Status Distribution")
     st.pyplot(fig)
 
-# ------------------------- AUDITORS TAB -------------------------
+# --- AUDITORS ---
 def auditors_tab():
     st.subheader("👥 Registered Auditors")
     auditors = fetch_auditors()
-
     if not auditors:
         st.info("No auditors found.")
         return
-
     df = pd.DataFrame(auditors, columns=["ID", "Name", "Username", "Role"])
     st.dataframe(df)
 
-# ------------------------- ASSIGNMENTS TAB -------------------------
+# --- ASSIGNMENTS ---
 def assignments_tab():
     st.subheader("🗂️ Audit Assignments")
     assignments = fetch_assignments()
-
     if not assignments:
         st.info("No assignments found.")
         return
-
     df = pd.DataFrame(assignments, columns=["Finding", "Auditor", "Due Date", "Status", "Action Taken"])
     st.dataframe(df)
 
-    # Show note writing only to auditors
+    # Auditors can submit notes
     if st.session_state.user and st.session_state.user["role"] == "auditor":
         st.subheader("📝 Write a Note About Audited Department")
         dept = st.text_input("Department Name")
@@ -95,19 +89,17 @@ def assignments_tab():
             else:
                 st.warning("Please fill all fields.")
 
-# ------------------------- AUDITOR NOTES TAB -------------------------
+# --- AUDITOR NOTES ---
 def auditor_notes_tab():
     st.subheader("📝 Auditor Notes (Admin Only)")
     notes = fetch_all_notes()
-
     if not notes:
         st.info("No auditor notes available.")
         return
-
     df = pd.DataFrame(notes, columns=["Department", "Auditor", "Note", "Date Written"])
     st.dataframe(df)
 
-# ------------------------- ADD AUDITOR -------------------------
+# --- ADD AUDITOR ---
 def add_auditor_form():
     st.subheader("➕ Add New Auditor (Admin Only)")
     with st.form("add_auditor_form"):
@@ -124,7 +116,7 @@ def add_auditor_form():
             else:
                 st.warning("Please fill all fields.")
 
-# ------------------------- ASSIGN FINDING -------------------------
+# --- ASSIGN FINDING ---
 def assign_finding_form():
     st.subheader("📝 Assign Audit Finding")
 
@@ -138,7 +130,6 @@ def assign_finding_form():
         st.warning("No auditors available to assign.")
         return
 
-    # Create mapping for dropdowns
     finding_map = {f"{f[0]} - {f[1]}": f[0] for f in findings}
     auditor_map = {f"{a[0]} - {a[1]}": a[0] for a in auditors}
 
@@ -158,18 +149,33 @@ def assign_finding_form():
         except KeyError as e:
             st.error(f"Assignment failed. KeyError: {e}")
 
-# ------------------------- MAIN APP FLOW -------------------------
+# ✅ --- ADD FINDING (NEW) ---
+def add_finding_form():
+    st.subheader("➕ Add New Finding")
+    with st.form("add_finding_form"):
+        title = st.text_input("Finding Title")
+        department = st.text_input("Department")
+        flagged = st.checkbox("Flag this finding as critical?")
+        submitted = st.form_submit_button("Add Finding")
+
+        if submitted:
+            if title and department:
+                add_finding(title, department, flagged)
+                st.success("Finding added successfully.")
+                st.rerun()
+            else:
+                st.warning("Please complete all fields.")
+
+# --- MAIN FLOW ---
 if st.session_state.user:
     st.sidebar.title("Navigation")
 
-    # Dynamically build menu based on user role
     menu_options = ["Dashboard", "Auditors", "Assignments"]
     if st.session_state.user["role"] == "admin":
-        menu_options += ["Add Auditor", "Assign Task", "Auditor Notes"]
+        menu_options += ["Add Auditor", "Assign Task", "Add Finding", "Auditor Notes"]  # ✅ Added "Add Finding"
     menu_options += ["Logout"]
 
     choice = st.sidebar.selectbox("Menu", menu_options)
-
     st.sidebar.markdown(f"**Logged in as:** {st.session_state.user['name']} ({st.session_state.user['role']})")
 
     if choice == "Dashboard":
@@ -178,11 +184,13 @@ if st.session_state.user:
         auditors_tab()
     elif choice == "Assignments":
         assignments_tab()
-    elif choice == "Add Auditor" and st.session_state.user["role"] == "admin":
+    elif choice == "Add Auditor":
         add_auditor_form()
-    elif choice == "Assign Task" and st.session_state.user["role"] == "admin":
+    elif choice == "Assign Task":
         assign_finding_form()
-    elif choice == "Auditor Notes" and st.session_state.user["role"] == "admin":
+    elif choice == "Add Finding":  # ✅ New route
+        add_finding_form()
+    elif choice == "Auditor Notes":
         auditor_notes_tab()
     elif choice == "Logout":
         st.session_state.user = None
